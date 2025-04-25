@@ -5,6 +5,9 @@
 // </copyright>
 // -----------------------------------------------------------------------
 
+using System.Numerics;
+using Exiled.API.Features.Items;
+
 namespace Exiled.CustomRoles.API.Features
 {
     using System;
@@ -535,7 +538,14 @@ namespace Exiled.CustomRoles.API.Features
                     foreach (string itemName in Inventory)
                     {
                         Log.Debug($"{Name}: Adding {itemName} to inventory.");
-                        TryAddItem(player, itemName);
+                        if (TryAddItem(player, itemName) && CustomItem.TryGet(itemName, out CustomItem? customItem) && customItem is CustomWeapon customWeapon)
+                        {
+                            if (player.CurrentItem is Firearm firearm && !customWeapon.Attachments.IsEmpty())
+                            {
+                                firearm.AddAttachment(customWeapon.Attachments);
+                                Log.Debug($"{Name}: Applied attachments to {itemName}.");
+                            }
+                        }
                     }
 
                     if (Ammo.Count > 0)

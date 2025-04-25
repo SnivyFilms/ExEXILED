@@ -5,6 +5,8 @@
 // </copyright>
 // -----------------------------------------------------------------------
 
+using Exiled.Events.EventArgs.Item;
+
 namespace Exiled.CustomItems.API.Features
 {
     using System;
@@ -151,6 +153,7 @@ namespace Exiled.CustomItems.API.Features
             Exiled.Events.Handlers.Player.Shooting += OnInternalShooting;
             Exiled.Events.Handlers.Player.Shot += OnInternalShot;
             Exiled.Events.Handlers.Player.Hurting += OnInternalHurting;
+            Exiled.Events.Handlers.Item.ChangingAttachments += OnInternalAttachmentChanging;
 
             base.SubscribeEvents();
         }
@@ -163,6 +166,7 @@ namespace Exiled.CustomItems.API.Features
             Exiled.Events.Handlers.Player.Shooting -= OnInternalShooting;
             Exiled.Events.Handlers.Player.Shot -= OnInternalShot;
             Exiled.Events.Handlers.Player.Hurting -= OnInternalHurting;
+            Exiled.Events.Handlers.Item.ChangingAttachments -= OnInternalAttachmentChanging;
 
             base.UnsubscribeEvents();
         }
@@ -207,6 +211,14 @@ namespace Exiled.CustomItems.API.Features
         {
             if (ev.IsAllowed && Damage > 0f)
                 ev.Amount = Damage;
+        }
+
+        /// <summary>
+        /// Handles attachment changing for custom weapons.
+        /// </summary>
+        /// <param name="ev"><see cref="ChangingAttachmentsEventArgs"/>.</param>
+        protected virtual void OnAttachmentChanging(ChangingAttachmentsEventArgs ev)
+        {
         }
 
         private void OnInternalReloading(ReloadingWeaponEventArgs ev)
@@ -320,6 +332,14 @@ namespace Exiled.CustomItems.API.Features
             }
 
             OnHurting(ev);
+        }
+
+        private void OnInternalAttachmentChanging(ChangingAttachmentsEventArgs ev)
+        {
+            if (!Check(ev.Player.CurrentItem))
+                return;
+
+            OnAttachmentChanging(ev);
         }
     }
 }
