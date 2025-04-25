@@ -19,6 +19,7 @@ namespace Exiled.API.Features
     using DamageHandlers;
     using Enums;
     using Exiled.API.Features.Core.Interfaces;
+    using Exiled.API.Features.CustomStats;
     using Exiled.API.Features.Doors;
     using Exiled.API.Features.Hazards;
     using Exiled.API.Features.Items;
@@ -96,6 +97,7 @@ namespace Exiled.API.Features
 
         private ReferenceHub referenceHub;
         private CustomHealthStat healthStat;
+        private CustomHumeShieldStat humeShieldStat;
         private Role role;
 
         /// <summary>
@@ -136,7 +138,7 @@ namespace Exiled.API.Features
         /// <summary>
         /// Gets a list of all <see cref="Player"/>'s on the server.
         /// </summary>
-        public static IReadOnlyCollection<Player> List => Dictionary.Values.Where(x => !x.IsNPC).ToList();
+        public static IReadOnlyCollection<Player> List => Dictionary.Values.ToList();
 
         /// <summary>
         /// Gets a <see cref="Dictionary{TKey, TValue}"/> containing cached <see cref="Player"/> and their user ids.
@@ -177,6 +179,7 @@ namespace Exiled.API.Features
                 CameraTransform = value.PlayerCameraReference;
 
                 value.playerStats._dictionarizedTypes[typeof(HealthStat)] = value.playerStats.StatModules[Array.IndexOf(PlayerStats.DefinedModules, typeof(HealthStat))] = healthStat = new CustomHealthStat { Hub = value };
+                value.playerStats._dictionarizedTypes[typeof(HumeShieldStat)] = value.playerStats.StatModules[Array.IndexOf(PlayerStats.DefinedModules, typeof(HumeShieldStat))] = humeShieldStat = new CustomHumeShieldStat { Hub = value };
             }
         }
 
@@ -610,18 +613,15 @@ namespace Exiled.API.Features
         /// <remarks>Players can be cuffed without another player being the cuffer.</remarks>
         public bool IsCuffed => Inventory.IsDisarmed();
 
-        // TODO NOT FINISH
-        /*
         /// <summary>
         /// Gets a value indicating whether the player is reloading a weapon.
         /// </summary>
-        public bool IsReloading => CurrentItem is Firearm firearm && !firearm.Base.AmmoManagerModule.Standby;
+        public bool IsReloading => CurrentItem is Firearm firearm && !firearm.IsReloading;
 
         /// <summary>
         /// Gets a value indicating whether the player is aiming with a weapon.
         /// </summary>
         public bool IsAimingDownWeapon => CurrentItem is Firearm firearm && firearm.Aiming;
-        */
 
         /// <summary>
         /// Gets a value indicating whether the player has enabled weapon's flashlight module.
@@ -792,7 +792,7 @@ namespace Exiled.API.Features
         /// <summary>
         /// Gets a value indicating whether the player is speaking.
         /// </summary>
-        public bool IsSpeaking => Role is Roles.IVoiceRole voiceRole && voiceRole.VoiceModule.IsSpeaking;
+        public bool IsSpeaking => Role is Roles.IVoiceRole voiceRole && voiceRole.VoiceModule.ServerIsSending;
 
         /// <summary>
         /// Gets the player's voice color.
@@ -934,14 +934,33 @@ namespace Exiled.API.Features
         }
 
         /// <summary>
+        /// Gets or sets the players maximum Hume Shield.
+        /// </summary>
+        public float MaxHumeShield
+        {
+            get => humeShieldStat.MaxValue;
+            set => humeShieldStat.CustomMaxValue = value;
+        }
+
+        /// <summary>
+        /// Gets or sets the players multiplier for gaining HumeShield.
+        /// </summary>
+        public float HumeShieldRegenerationMultiplier
+        {
+            get => humeShieldStat.ShieldRegenerationMultiplier;
+            set => humeShieldStat.ShieldRegenerationMultiplier = value;
+        }
+
+        /// <summary>
         /// Gets a <see cref="IEnumerable{T}"/> of all active Artificial Health processes on the player.
         /// </summary>
         public IEnumerable<AhpStat.AhpProcess> ActiveArtificialHealthProcesses => ReferenceHub.playerStats.GetModule<AhpStat>()._activeProcesses;
 
         /// <summary>
         /// Gets the player's <see cref="PlayerStatsSystem.HumeShieldStat"/>.
+        /// TODO: Change to <see cref="CustomHumeShieldStat"/>.
         /// </summary>
-        public HumeShieldStat HumeShieldStat => ReferenceHub.playerStats.GetModule<HumeShieldStat>();
+        public HumeShieldStat HumeShieldStat => humeShieldStat;
 
         /// <summary>
         /// Gets or sets the item in the player's hand. Value will be <see langword="null"/> if the player is not holding anything.
@@ -2084,9 +2103,6 @@ namespace Exiled.API.Features
         {
             Vector3 currentScale = Scale;
 
-            if (fakeScale == currentScale)
-                return;
-
             try
             {
                 ReferenceHub.transform.localScale = fakeScale;
@@ -2193,6 +2209,12 @@ namespace Exiled.API.Features
         /// <summary>
         /// Forces the player to use an item.
         /// </summary>
+        /// <param name="usable">The item to be used.</param>
+        public void UseItem(Usable usable) => usable?.Use(this);
+
+        /// <summary>
+        /// Forces the player to use an item.
+        /// </summary>
         /// <param name="item">The item to be used.</param>
         /// <returns><see langword="true"/> if item was used successfully. Otherwise, <see langword="false"/>.</returns>
         public bool UseItem(Item item)
@@ -2200,14 +2222,7 @@ namespace Exiled.API.Features
             if (item is not Usable usableItem)
                 return false;
 
-            usableItem.Base.Owner = referenceHub;
-            usableItem.Base.ServerOnUsingCompleted();
-
-            typeof(UsableItemsController).InvokeStaticEvent(nameof(UsableItemsController.ServerOnUsingCompleted), new object[] { referenceHub, usableItem.Base });
-
-            if (usableItem.Base is not null)
-                usableItem.Destroy();
-
+            UseItem(usableItem);
             return true;
         }
 
@@ -2784,7 +2799,7 @@ namespace Exiled.API.Features
         /// <param name="pickup">The <see cref="Pickup"/> of the item to be added.</param>
         /// <param name="addReason">The reason the item was added.</param>
         /// <returns>The <see cref="Item"/> that was added.</returns>
-        public Item AddItem(Pickup pickup, ItemAddReason addReason = ItemAddReason.Undefined) => Item.Get(Inventory.ServerAddItem(pickup.Type, addReason, pickup.Serial, pickup.Base));
+        public Item AddItem(Pickup pickup, ItemAddReason addReason = ItemAddReason.AdminCommand) => Item.Get(Inventory.ServerAddItem(pickup.Type, addReason, pickup.Serial, pickup.Base));
 
         /// <summary>
         /// Adds an item to the player's inventory.
@@ -2794,7 +2809,7 @@ namespace Exiled.API.Features
         /// <returns>The <see cref="Item"/> that was added.</returns>
         public Item AddItem(FirearmPickup pickup, IEnumerable<AttachmentIdentifier> identifiers)
         {
-            Firearm firearm = Item.Get<Firearm>(Inventory.ServerAddItem(pickup.Type, ItemAddReason.Undefined, pickup.Serial, pickup.Base));
+            Firearm firearm = Item.Get<Firearm>(Inventory.ServerAddItem(pickup.Type, ItemAddReason.AdminCommand, pickup.Serial, pickup.Base));
 
             if (identifiers is not null)
                 firearm.AddAttachment(identifiers);
@@ -3717,7 +3732,7 @@ namespace Exiled.API.Features
         /// <inheritdoc />
         public override int GetHashCode()
         {
-            return ReferenceHub.GetHashCode();
+            return base.GetHashCode();
         }
 
         /// <summary>

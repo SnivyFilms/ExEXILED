@@ -13,6 +13,8 @@ namespace Exiled.API.Features
     using System.Collections.ObjectModel;
     using System.Linq;
 
+    using CommandSystem.Commands.RemoteAdmin.Cleanup;
+    using Decals;
     using Enums;
     using Exiled.API.Extensions;
     using Exiled.API.Features.Hazards;
@@ -27,6 +29,7 @@ namespace Exiled.API.Features
     using PlayerRoles.Ragdolls;
     using UnityEngine;
     using Utils;
+    using Utils.Networking;
 
     using Object = UnityEngine.Object;
 
@@ -55,6 +58,14 @@ namespace Exiled.API.Features
         public static DecontaminationState DecontaminationState =>
             DecontaminationController.Singleton.NetworkDecontaminationOverride is DecontaminationController.DecontaminationStatus.Disabled ?
             DecontaminationState.Disabled : (DecontaminationState)DecontaminationController.Singleton._nextPhase;
+
+        /// <summary>
+        /// Gets the remaining time for the decontamination process.
+        /// </summary>
+        /// <returns>
+        /// The remaining time in seconds for the decontamination process.
+        /// </returns>
+        public static float RemainingDecontaminationTime => Mathf.Min(0, (float)(DecontaminationController.Singleton.DecontaminationPhases[DecontaminationController.Singleton.DecontaminationPhases.Length - 1].TimeTrigger - DecontaminationController.GetServerTime));
 
         /// <summary>
         /// Gets all <see cref="PocketDimensionTeleport"/> objects.
@@ -264,6 +275,19 @@ namespace Exiled.API.Features
         }
 
         /// <summary>
+        /// Destroy specified amount of specified <see cref="DecalPoolType"/> object.
+        /// </summary>
+        /// <param name="decalType">Decal type to destroy.</param>
+        /// <param name="amount">Amount of decals to destroy.</param>
+        public static void Clean(DecalPoolType decalType, int amount) => new DecalCleanupMessage(decalType, amount).SendToAuthenticated();
+
+        /// <summary>
+        /// Destroy all specified <see cref="DecalPoolType"/> objects.
+        /// </summary>
+        /// <param name="decalType">Decal type to destroy.</param>
+        public static void Clean(DecalPoolType decalType) => Clean(decalType, int.MaxValue);
+
+        /// <summary>
         /// Places a blood decal.
         /// </summary>
         /// <param name="position">The position of the blood decal.</param>
@@ -367,6 +391,12 @@ namespace Exiled.API.Features
             Firearm.ItemTypeToFirearmInstance.Clear();
             Firearm.BaseCodesValue.Clear();
             Firearm.AvailableAttachmentsValue.Clear();
+
+#pragma warning disable CS0618
+            Scp559.CakeToWrapper.Clear();
+
+            Coffee.BaseToWrapper.Clear();
+#pragma warning restore CS0618
         }
     }
 }

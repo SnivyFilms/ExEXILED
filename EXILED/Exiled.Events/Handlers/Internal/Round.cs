@@ -27,6 +27,7 @@ namespace Exiled.Events.Handlers.Internal
     using InventorySystem.Items.Firearms.Attachments;
     using InventorySystem.Items.Firearms.Attachments.Components;
     using InventorySystem.Items.Usables;
+    using InventorySystem.Items.Usables.Scp244.Hypothermia;
     using PlayerRoles;
     using PlayerRoles.RoleAssign;
     using Utils.NonAllocLINQ;
@@ -61,6 +62,7 @@ namespace Exiled.Events.Handlers.Internal
             Scp173Role.TurnedPlayers.Clear();
             Scp096Role.TurnedPlayers.Clear();
             Scp079Role.TurnedPlayers.Clear();
+            Scp939Role.TurnedPlayers.Clear();
 
             MultiAdminFeatures.CallEvent(MultiAdminFeatures.EventType.ROUND_END);
 
@@ -105,6 +107,12 @@ namespace Exiled.Events.Handlers.Internal
                 ev.Player.SendFakeSyncVar(room.RoomLightControllerNetIdentity, typeof(RoomLightController), nameof(RoomLightController.NetworkLightsEnabled), true);
                 ev.Player.SendFakeSyncVar(room.RoomLightControllerNetIdentity, typeof(RoomLightController), nameof(RoomLightController.NetworkLightsEnabled), false);
             }
+
+            // TODO: Remove if this has been fixed for https://git.scpslgame.com/northwood-qa/scpsl-bug-reporting/-/issues/947
+            if (ev.Player.TryGetEffect(out Hypothermia hypothermia))
+            {
+                hypothermia.SubEffects = hypothermia.SubEffects.Where(x => x.GetType() != typeof(PostProcessSubEffect)).ToArray();
+            }
         }
 
         private static void GenerateAttachments()
@@ -117,7 +125,7 @@ namespace Exiled.Events.Handlers.Internal
                 if (Item.Create(firearmType.GetItemType()) is not Firearm firearm)
                     continue;
 
-                Firearm.ItemTypeToFirearmInstance.Add(firearmType, firearm);
+                Firearm.ItemTypeToFirearmInstance[firearmType] = firearm;
 
                 List<AttachmentIdentifier> attachmentIdentifiers = ListPool<AttachmentIdentifier>.Pool.Get();
                 HashSet<AttachmentSlot> attachmentsSlots = HashSetPool<AttachmentSlot>.Pool.Get();
@@ -136,8 +144,8 @@ namespace Exiled.Events.Handlers.Internal
                         .Where(attachment => attachment.Slot == slot)
                         .Min(slot => slot.Code));
 
-                Firearm.BaseCodesValue.Add(firearmType, baseCode);
-                Firearm.AvailableAttachmentsValue.Add(firearmType, attachmentIdentifiers.ToArray());
+                Firearm.BaseCodesValue[firearmType] = baseCode;
+                Firearm.AvailableAttachmentsValue[firearmType] = attachmentIdentifiers.ToArray();
 
                 ListPool<AttachmentIdentifier>.Pool.Return(attachmentIdentifiers);
                 HashSetPool<AttachmentSlot>.Pool.Return(attachmentsSlots);
