@@ -5,8 +5,6 @@
 // </copyright>
 // -----------------------------------------------------------------------
 
-using Exiled.Events.EventArgs.Item;
-
 namespace Exiled.CustomItems.API.Features
 {
     using System;
@@ -18,6 +16,7 @@ namespace Exiled.CustomItems.API.Features
     using Exiled.API.Features.DamageHandlers;
     using Exiled.API.Features.Items;
     using Exiled.API.Features.Pickups;
+    using Exiled.Events.EventArgs.Item;
     using Exiled.Events.EventArgs.Player;
     using InventorySystem;
     using InventorySystem.Items.Firearms.Attachments;
@@ -153,7 +152,7 @@ namespace Exiled.CustomItems.API.Features
             Exiled.Events.Handlers.Player.Shooting += OnInternalShooting;
             Exiled.Events.Handlers.Player.Shot += OnInternalShot;
             Exiled.Events.Handlers.Player.Hurting += OnInternalHurting;
-            Exiled.Events.Handlers.Item.ChangingAttachments += OnInternalAttachmentChanging;
+            Exiled.Events.Handlers.Item.ChangingAttachments += OnInternalChangingAttachment;
 
             base.SubscribeEvents();
         }
@@ -166,7 +165,7 @@ namespace Exiled.CustomItems.API.Features
             Exiled.Events.Handlers.Player.Shooting -= OnInternalShooting;
             Exiled.Events.Handlers.Player.Shot -= OnInternalShot;
             Exiled.Events.Handlers.Player.Hurting -= OnInternalHurting;
-            Exiled.Events.Handlers.Item.ChangingAttachments -= OnInternalAttachmentChanging;
+            Exiled.Events.Handlers.Item.ChangingAttachments -= OnInternalChangingAttachment;
 
             base.UnsubscribeEvents();
         }
@@ -217,7 +216,7 @@ namespace Exiled.CustomItems.API.Features
         /// Handles attachment changing for custom weapons.
         /// </summary>
         /// <param name="ev"><see cref="ChangingAttachmentsEventArgs"/>.</param>
-        protected virtual void OnAttachmentChanging(ChangingAttachmentsEventArgs ev)
+        protected virtual void OnChangingAttachment(ChangingAttachmentsEventArgs ev)
         {
         }
 
@@ -334,12 +333,12 @@ namespace Exiled.CustomItems.API.Features
             OnHurting(ev);
         }
 
-        private void OnInternalAttachmentChanging(ChangingAttachmentsEventArgs ev)
+        private void OnInternalChangingAttachment(ChangingAttachmentsEventArgs ev)
         {
             if (!Check(ev.Player.CurrentItem))
                 return;
 
-            OnAttachmentChanging(ev);
+            OnChangingAttachment(ev);
         }
     }
 }
